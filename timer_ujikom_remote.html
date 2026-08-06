@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Timer Ujikom — Kontrol Jarak Jauh</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1/dist/peerjs.min.js"></script>
+<style>
+  :root{
+    --bg-deep:#0B1220;
+    --panel:#131C2E;
+    --panel-2:#1B2740;
+    --line:#26324B;
+    --text-primary:#E7ECF5;
+    --text-dim:#8B98B4;
+    --calm:#2DD4BF;
+    --warn:#F4B400;
+    --critical:#EF4444;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 20% 0%, rgba(45,212,191,0.06), transparent 45%),
+      radial-gradient(circle at 100% 100%, rgba(244,180,0,0.05), transparent 45%),
+      var(--bg-deep);
+    color:var(--text-primary);
+    font-family:'Inter',sans-serif;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:32px;
+  }
+  .card{
+    width:100%;
+    max-width:480px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:28px 28px 24px;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.6);
+  }
+  .eyebrow{
+    font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--text-dim); margin:0 0 4px; font-weight:600;
+  }
+  h1{
+    font-family:'Space Grotesk',sans-serif; font-size:21px; margin:0 0 20px; font-weight:600;
+  }
+  p.desc{ font-size:13px; color:var(--text-dim); line-height:1.6; margin:0 0 22px; }
+  label{ display:block; font-size:12px; color:var(--text-dim); margin:0 0 6px; font-weight:500; }
+  input[type=text]{
+    width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text-primary);
+    border-radius:10px; padding:10px 12px; font-size:14px; font-family:'Inter',sans-serif; margin-bottom:14px;
+  }
+  input[type=text]:focus{outline:2px solid var(--calm); outline-offset:1px;}
+  input.room-input{
+    text-align:center; font-family:'Space Grotesk',sans-serif; font-size:22px; font-weight:700;
+    letter-spacing:.15em; text-transform:uppercase;
+  }
+
+  .role-choice{ display:flex; flex-direction:column; gap:12px; }
+  .role-btn{
+    background:var(--panel-2); border:1px solid var(--line); color:var(--text-primary);
+    border-radius:12px; padding:16px; text-align:left; cursor:pointer; font-family:'Inter',sans-serif;
+  }
+  .role-btn:hover{border-color:var(--calm);}
+  .role-btn .rt{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; margin-bottom:4px; display:block;}
+  .role-btn .rd{ font-size:12.5px; color:var(--text-dim); line-height:1.5; }
+
+  .back-link{ font-size:12px; color:var(--text-dim); cursor:pointer; margin-bottom:16px; display:inline-block;}
+  .back-link:hover{ color:var(--text-primary); }
+
+  .room-code-box{
+    background:var(--bg-deep); border:1px solid var(--line); border-radius:14px;
+    padding:18px; text-align:center; margin-bottom:16px;
+  }
+  .room-code{
+    font-family:'Space Grotesk',sans-serif; font-size:38px; font-weight:700; letter-spacing:.18em;
+    color:var(--calm);
+  }
+  .room-code-label{ font-size:11px; color:var(--text-dim); letter-spacing:.08em; text-transform:uppercase; margin-top:6px;}
+
+  .status-row{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim); margin-bottom:18px; }
+  .status-dot{ width:8px; height:8px; border-radius:50%; background:var(--text-dim); flex-shrink:0; }
+  .status-dot.ok{ background:var(--calm); box-shadow:0 0 0 3px rgba(45,212,191,0.15);}
+  .status-dot.bad{ background:var(--critical); }
+  .status-dot.pending{ background:var(--warn); animation:pulse 1s infinite; }
+  @keyframes pulse{50%{opacity:.35;}}
+
+  .session-block{
+    border:1px solid var(--line); border-radius:12px; padding:12px 14px 14px; margin-bottom:12px; background:rgba(255,255,255,0.015);
+  }
+  .session-block-title{ display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; margin-bottom:10px; }
+  .session-dot{ width:8px; height:8px; border-radius:50%; background:var(--calm); flex-shrink:0; }
+  .session-block:nth-child(4) .session-dot{ background:var(--warn); }
+  .presets{ display:flex; gap:6px; flex-wrap:wrap; }
+  .preset-btn{
+    flex:1; min-width:56px; background:var(--panel-2); border:1px solid var(--line); color:var(--text-primary);
+    border-radius:9px; padding:8px 4px; font-size:12.5px; font-weight:600; cursor:pointer;
+    font-family:'Space Grotesk',sans-serif; transition:border-color .15s, color .15s;
+  }
+  .preset-btn:hover{ border-color:var(--calm); color:var(--calm); }
+  .preset-btn.active{ border-color:var(--calm); color:var(--calm); background:rgba(45,212,191,0.08); }
+
+  .badge-row{ display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:8px; }
+  .session-badge{
+    font-size:11px; letter-spacing:.08em; text-transform:uppercase; font-weight:700; color:var(--calm);
+    background:rgba(45,212,191,0.1); border:1px solid rgba(45,212,191,0.35); border-radius:20px; padding:4px 12px;
+  }
+  .session-badge.warn{ color:var(--warn); background:rgba(244,180,0,0.1); border-color:rgba(244,180,0,0.35); }
+
+  .display-wrap{
+    background:var(--bg-deep); border:1px solid var(--line); border-radius:14px; padding:18px 10px 20px;
+    text-align:center; margin-bottom:16px; position:relative; overflow:hidden;
+  }
+  .display{
+    font-family:'Space Grotesk',sans-serif; font-size:54px; font-weight:700; font-variant-numeric:tabular-nums;
+    letter-spacing:.02em; color:var(--calm); transition:color .3s; line-height:1;
+  }
+  .display.warn{ color:var(--warn); }
+  .display.critical{ color:var(--critical); animation:pulse 1s infinite; }
+  .sublabel{ margin-top:6px; font-size:12px; color:var(--text-dim); letter-spacing:.05em; }
+  .progress-track{ height:4px; background:var(--line); border-radius:4px; margin-top:14px; overflow:hidden; }
+  .progress-fill{ height:100%; background:var(--calm); width:100%; transition:width 1s linear, background .3s; }
+  .progress-fill.warn{ background:var(--warn); }
+  .progress-fill.critical{ background:var(--critical); }
+
+  .controls{ display:flex; gap:8px; margin-bottom:10px; }
+  button.action{
+    flex:1; border-radius:10px; border:1px solid var(--line); padding:12px 8px; font-family:'Space Grotesk',sans-serif;
+    font-weight:600; font-size:13.5px; cursor:pointer; background:var(--panel-2); color:var(--text-primary);
+  }
+  button.primary{ background:var(--calm); border-color:var(--calm); color:#04231F; }
+  button.primary:hover{ filter:brightness(1.08); }
+  button.action:hover{ border-color:var(--text-dim); }
+  button:disabled{ opacity:.4; cursor:not-allowed; }
+
+  .skip-row{ margin-bottom:12px; }
+  .skip-btn{
+    width:100%; background:none; border:1px dashed var(--line); color:var(--text-dim); border-radius:10px;
+    padding:9px; font-size:12.5px; font-weight:500; cursor:pointer; font-family:'Inter',sans-serif;
+  }
+  .skip-btn:hover{ color:var(--text-primary); border-color:var(--text-dim); }
+  .skip-btn:disabled{ opacity:.3; cursor:not-allowed; }
+
+  .adjust{ display:flex; gap:8px; margin-bottom:14px; }
+  .adjust button{
+    flex:1; background:var(--panel-2); border:1px solid var(--line); color:var(--text-dim); border-radius:8px;
+    padding:7px; font-size:12px; font-weight:600; cursor:pointer;
+  }
+  .adjust button:hover{ color:var(--text-primary); border-color:var(--calm); }
+
+  .pip-row{ border-top:1px solid var(--line); padding-top:16px; margin-top:4px; }
+  .pip-btn{
+    background:var(--panel-2); border:1px solid var(--calm); color:var(--calm); border-radius:10px;
+    padding:11px 16px; font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:13px; cursor:pointer; width:100%;
+  }
+  .pip-btn:hover{ background:rgba(45,212,191,0.1); }
+  .pip-btn:disabled{ opacity:.35; cursor:not-allowed; border-color:var(--line); color:var(--text-dim); }
+
+  .note{ font-size:11.5px; color:var(--text-dim); margin-top:12px; line-height:1.5; }
+  .note strong{ color:var(--text-primary); }
+  .unsupported{ font-size:12px; color:var(--warn); margin-top:10px; line-height:1.5; display:none; }
+  .toggle-row{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-dim); margin:0 0 16px; }
+  .toggle-row input{ accent-color:var(--calm); }
+
+  .connect-row{ display:flex; gap:8px; }
+  .connect-row input{ flex:1; margin-bottom:0; }
+  .connect-btn{
+    background:var(--calm); border:1px solid var(--calm); color:#04231F; border-radius:10px; padding:0 18px;
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px; cursor:pointer;
+  }
+  .connect-btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+  hr.sep{ border:none; border-top:1px solid var(--line); margin:18px 0; }
+  [hidden]{ display:none !important; }
+</style>
+</head>
+<body>
+
+<!-- ================= LANDING ================= -->
+<div class="card" id="landing">
+  <p class="eyebrow">Kontrol Waktu Ujikom</p>
+  <h1>Timer Ujikom — Kontrol Jarak Jauh</h1>
+  <p class="desc">Pilih peran perangkat ini. Panitia mengontrol dari perangkatnya sendiri; laptop peserta hanya menampilkan hitungan mundur dan tersambung ke layar depan.</p>
+  <div class="role-choice">
+    <button class="role-btn" id="chooseController">
+      <span class="rt">Saya Panitia — Kontrol Timer</span>
+      <span class="rd">Buat kode ruangan, atur durasi tiap sesi, dan kendalikan Mulai / Pause / Lewati dari sini.</span>
+    </button>
+    <button class="role-btn" id="chooseDisplay">
+      <span class="rt">Ini Laptop Peserta — Tampilkan Timer</span>
+      <span class="rd">Masukkan kode ruangan dari panitia. Timer akan tampil melayang di atas slide/Canva/PDF, dikendalikan dari jarak jauh oleh panitia.</span>
+    </button>
+  </div>
+</div>
+
+<!-- ================= CONTROLLER VIEW ================= -->
+<div class="card" id="controllerView" hidden>
+  <span class="back-link" id="backFromController">← Ganti peran</span>
+  <p class="eyebrow">Panitia · Kontrol</p>
+  <h1>Kontrol Timer</h1>
+
+  <div class="room-code-box">
+    <div class="room-code" id="roomCodeDisplay">••••••</div>
+    <div class="room-code-label">Kode Ruangan — sampaikan ke laptop peserta</div>
+  </div>
+  <div class="status-row">
+    <span class="status-dot pending" id="ctrlStatusDot"></span>
+    <span id="ctrlStatusText">Menyiapkan koneksi…</span>
+  </div>
+
+  <label for="examName">Nama sesi / kompetensi</label>
+  <input type="text" id="examName" value="Uji Kompetensi" maxlength="40">
+
+  <div class="session-block">
+    <div class="session-block-title"><span class="session-dot"></span> Sesi 1 — Pemaparan</div>
+    <div class="presets" data-session="0">
+      <button class="preset-btn" data-min="10">10m</button>
+      <button class="preset-btn active" data-min="15">15m</button>
+      <button class="preset-btn" data-min="20">20m</button>
+      <button class="preset-btn" data-min="30">30m</button>
+      <button class="preset-btn" data-min="45">45m</button>
+    </div>
+  </div>
+
+  <div class="session-block">
+    <div class="session-block-title"><span class="session-dot"></span> Sesi 2 — Tanya Jawab / Wawancara</div>
+    <div class="presets" data-session="1">
+      <button class="preset-btn" data-min="15">15m</button>
+      <button class="preset-btn active" data-min="20">20m</button>
+      <button class="preset-btn" data-min="30">30m</button>
+      <button class="preset-btn" data-min="45">45m</button>
+      <button class="preset-btn" data-min="60">60m</button>
+    </div>
+  </div>
+
+  <div class="badge-row"><span class="session-badge" id="sessionBadge">SESI 1 DARI 2 • PEMAPARAN</span></div>
+
+  <div class="display-wrap">
+    <div class="display" id="display">15:00</div>
+    <div class="sublabel" id="sublabel">SIAP DIMULAI</div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <div class="adjust">
+    <button id="minus5">−5 mnt</button>
+    <button id="minus1">−1 mnt</button>
+    <button id="plus1">+1 mnt</button>
+    <button id="plus5">+5 mnt</button>
+  </div>
+
+  <div class="controls">
+    <button class="action primary" id="startBtn">Mulai Sesi 1</button>
+    <button class="action" id="resetBtn">Ulangi dari Awal</button>
+  </div>
+
+  <div class="skip-row"><button class="skip-btn" id="skipBtn">Lewati ke Sesi 2 sekarang →</button></div>
+
+  <label class="toggle-row"><input type="checkbox" id="soundToggle" checked> Bunyi peringatan di 5 menit, 1 menit, dan saat sesi berakhir (berbunyi di laptop peserta)</label>
+
+  <p class="note">Tampilan di atas adalah pratinjau milik panitia. Yang tampil di layar depan adalah laptop peserta yang sudah memasukkan kode ruangan ini dan mengaktifkan mode melayang.</p>
+</div>
+
+<!-- ================= DISPLAY VIEW ================= -->
+<div class="card" id="displayView" hidden>
+  <span class="back-link" id="backFromDisplay">← Ganti peran</span>
+  <p class="eyebrow">Peserta · Tampilan</p>
+  <h1>Sambungkan ke Panitia</h1>
+
+  <div id="displayConnectForm">
+    <label for="roomInput">Masukkan kode ruangan dari panitia</label>
+    <div class="connect-row">
+      <input type="text" id="roomInput" class="room-input" maxlength="6" placeholder="KODE">
+      <button class="connect-btn" id="connectBtn">Sambung</button>
+    </div>
+    <p class="unsupported" id="displayError" style="display:none;"></p>
+  </div>
+
+  <div id="displayConnected" hidden>
+    <div class="status-row">
+      <span class="status-dot ok" id="dispStatusDot"></span>
+      <span id="dispStatusText">Terhubung ke panitia</span>
+    </div>
+    <div class="badge-row"><span class="session-badge" id="dSessionBadge">SESI 1 DARI 2 • PEMAPARAN</span></div>
+    <div class="display-wrap">
+      <div class="display" id="dDisplay">00:00</div>
+      <div class="sublabel" id="dSublabel">MENUNGGU PANITIA</div>
+      <div class="progress-track"><div class="progress-fill" id="dProgressFill"></div></div>
+    </div>
+    <div class="pip-row">
+      <button class="pip-btn" id="pipBtn">Aktifkan Mode Melayang (tetap di atas PPT/Canva/PDF)</button>
+    </div>
+    <p class="note">Setelah mode melayang aktif, kotak kecil ini akan tetap tampil di atas slide/Canva/PDF apa pun yang dibuka di laptop ini. Panitia yang mengendalikan Mulai/Pause/Lewati dari perangkat mereka sendiri.</p>
+    <p class="unsupported" id="pipUnsupported">Browser ini belum mendukung mode melayang. Gunakan Google Chrome atau Microsoft Edge versi terbaru (116+).</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  const ROOM_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // tanpa karakter mirip (O,0,I,1)
+  function genRoomCode(len){
+    let s='';
+    for(let i=0;i<len;i++) s += ROOM_CHARS[Math.floor(Math.random()*ROOM_CHARS.length)];
+    return s;
+  }
+
+  const landing = document.getElementById('landing');
+  const controllerView = document.getElementById('controllerView');
+  const displayView = document.getElementById('displayView');
+
+  document.getElementById('chooseController').addEventListener('click', ()=>{
+    landing.hidden = true; controllerView.hidden = false; initController();
+  });
+  document.getElementById('chooseDisplay').addEventListener('click', ()=>{
+    landing.hidden = true; displayView.hidden = false;
+  });
+  document.getElementById('backFromController').addEventListener('click', ()=>location.reload());
+  document.getElementById('backFromDisplay').addEventListener('click', ()=>location.reload());
+
+  function beep(freq, dur){
+    try{
+      const ctx = new (window.AudioContext||window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = freq; osc.type = 'sine'; gain.gain.value = 0.15;
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start();
+      setTimeout(()=>{ osc.stop(); ctx.close(); }, dur);
+    }catch(e){}
+  }
+
+  function fmt(s){
+    s = Math.max(0, Math.round(s));
+    const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+    if(h>0) return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+    return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+  }
+
+  /* =================== CONTROLLER =================== */
+  function initController(){
+    const displayEl = document.getElementById('display');
+    const sublabelEl = document.getElementById('sublabel');
+    const progressFillEl = document.getElementById('progressFill');
+    const examNameEl = document.getElementById('examName');
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const skipBtn = document.getElementById('skipBtn');
+    const soundToggle = document.getElementById('soundToggle');
+    const sessionBadge = document.getElementById('sessionBadge');
+    const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+    const ctrlStatusDot = document.getElementById('ctrlStatusDot');
+    const ctrlStatusText = document.getElementById('ctrlStatusText');
+
+    const sessions = [
+      { label:'Pemaparan', minutes:15 },
+      { label:'Tanya Jawab / Wawancara', minutes:20 }
+    ];
+    let currentIndex = 0;
+    let totalSeconds = sessions[0].minutes*60;
+    let remaining = totalSeconds;
+    let running = false;
+    let intervalId = null;
+    let warnedFive = false, warnedOne = false, ended = false;
+
+    let peer = null;
+    let conns = [];
+    let roomCode = null;
+
+    function setupPeer(attemptsLeft){
+      roomCode = genRoomCode(6);
+      roomCodeDisplay.textContent = roomCode;
+      ctrlStatusText.textContent = 'Menyiapkan koneksi…';
+      ctrlStatusDot.className = 'status-dot pending';
+      try{ if(peer) peer.destroy(); }catch(e){}
+      peer = new Peer('ujikom-'+roomCode);
+      peer.on('open', ()=>{
+        ctrlStatusText.textContent = 'Kode siap. Menunggu peserta menyambung…';
+        ctrlStatusDot.className = 'status-dot pending';
+      });
+      peer.on('connection', (conn)=>{
+        conns.push(conn);
+        conn.on('open', ()=>{
+          updateStatusConnected();
+          sendState(); // kirim state saat ini begitu tersambung
+        });
+        conn.on('close', ()=>{
+          conns = conns.filter(c=>c!==conn);
+          updateStatusConnected();
+        });
+        conn.on('error', ()=>{
+          conns = conns.filter(c=>c!==conn);
+          updateStatusConnected();
+        });
+      });
+      peer.on('error', (err)=>{
+        if(err && err.type === 'unavailable-id' && attemptsLeft>0){
+          setupPeer(attemptsLeft-1);
+        } else {
+          ctrlStatusText.textContent = 'Gagal membuat koneksi: '+(err && err.type ? err.type : 'tidak diketahui')+'. Coba muat ulang halaman.';
+          ctrlStatusDot.className = 'status-dot bad';
+        }
+      });
+    }
+    function updateStatusConnected(){
+      if(conns.length>0){
+        ctrlStatusText.textContent = 'Terhubung ke ' + conns.length + ' laptop peserta';
+        ctrlStatusDot.className = 'status-dot ok';
+      } else {
+        ctrlStatusText.textContent = 'Kode siap. Menunggu peserta menyambung…';
+        ctrlStatusDot.className = 'status-dot pending';
+      }
+    }
+    setupPeer(5);
+
+    function stateClass(){
+      const ratio = remaining/totalSeconds;
+      if(remaining<=0) return 'critical';
+      if(ratio<=0.1 || remaining<=60) return 'critical';
+      if(ratio<=0.25 || remaining<=300) return 'warn';
+      return '';
+    }
+    function isLastSession(){ return currentIndex === sessions.length-1; }
+
+    function computeRender(){
+      const cls = stateClass();
+      const timeStr = fmt(remaining);
+      const sess = sessions[currentIndex];
+      let label;
+      if(remaining<=0){
+        label = isLastSession() ? 'SEMUA SESI SELESAI' : 'SESI ' + (currentIndex+1) + ' SELESAI';
+      } else if(running){
+        label = examNameEl.value.toUpperCase() + ' — ' + sess.label.toUpperCase();
+      } else {
+        label = 'SIAP — ' + sess.label.toUpperCase();
+      }
+      const ratio = Math.max(0, remaining/totalSeconds*100);
+      const badgeText = 'SESI ' + (currentIndex+1) + ' DARI ' + sessions.length + ' • ' + sess.label.toUpperCase();
+      const badgeWarn = currentIndex===1;
+      return { timeStr, label, cls, ratio, badgeText, badgeWarn };
+    }
+
+    function render(){
+      const r = computeRender();
+      displayEl.textContent = r.timeStr;
+      displayEl.className = 'display ' + r.cls;
+      sublabelEl.textContent = r.label;
+      progressFillEl.style.width = r.ratio+'%';
+      progressFillEl.className = 'progress-fill ' + r.cls;
+      sessionBadge.textContent = r.badgeText;
+      sessionBadge.className = 'session-badge' + (r.badgeWarn ? ' warn' : '');
+      skipBtn.disabled = isLastSession() || (remaining<=0);
+      skipBtn.textContent = isLastSession() ? 'Sesi terakhir' : ('Lewati ke Sesi ' + (currentIndex+2) + ' sekarang →');
+    }
+
+    function sendState(beepMsg){
+      const r = computeRender();
+      const msg = { type:'render', ...r, beep: beepMsg || null };
+      conns.forEach(c=>{ try{ if(c.open) c.send(msg); }catch(e){} });
+    }
+
+    function tick(){
+      if(!running) return;
+      remaining -= 1;
+      let beepMsg = null;
+      if(soundToggle.checked){
+        if(remaining===300 && !warnedFive){ beep(880,180); beepMsg={freq:880,dur:180}; warnedFive=true; }
+        if(remaining===60 && !warnedOne){ beep(880,180); beepMsg={freq:880,dur:180}; warnedOne=true; }
+      }
+      if(remaining<=0){
+        remaining = 0; running = false; ended = true;
+        clearInterval(intervalId);
+        if(soundToggle.checked){ beep(660,500); beepMsg={freq:660,dur:500}; }
+        if(isLastSession()){ startBtn.textContent = 'Semua Sesi Selesai'; startBtn.disabled = true; }
+        else { startBtn.textContent = 'Mulai Sesi ' + (currentIndex+2); startBtn.disabled = false; }
+      }
+      render();
+      sendState(beepMsg);
+    }
+
+    function start(){
+      if(ended && !isLastSession()) advanceSession();
+      if(remaining<=0) return;
+      running = true; ended = false; startBtn.disabled = false; startBtn.textContent = 'Pause';
+      intervalId = setInterval(tick, 1000);
+      render(); sendState();
+    }
+    function pause(){
+      running = false; clearInterval(intervalId); startBtn.textContent = 'Lanjutkan';
+      render(); sendState();
+    }
+    function advanceSession(){
+      currentIndex = Math.min(currentIndex+1, sessions.length-1);
+      totalSeconds = sessions[currentIndex].minutes*60;
+      remaining = totalSeconds; warnedFive=false; warnedOne=false; ended=false;
+    }
+    function resetAll(){
+      running = false; clearInterval(intervalId);
+      currentIndex = 0; totalSeconds = sessions[0].minutes*60; remaining = totalSeconds;
+      warnedFive=false; warnedOne=false; ended=false;
+      startBtn.disabled = false; startBtn.textContent = 'Mulai Sesi 1';
+      render(); sendState();
+    }
+    function skipToNext(){
+      if(isLastSession()) return;
+      running = false; clearInterval(intervalId);
+      advanceSession();
+      startBtn.disabled = false; startBtn.textContent = 'Mulai Sesi ' + (currentIndex+1);
+      render(); sendState();
+    }
+    function adjust(deltaMin){
+      remaining = Math.max(0, remaining + deltaMin*60);
+      totalSeconds = Math.max(totalSeconds, remaining);
+      if(remaining>300) warnedFive=false;
+      if(remaining>60) warnedOne=false;
+      if(remaining>0 && ended){ ended=false; startBtn.disabled=false; startBtn.textContent = running ? 'Pause' : 'Lanjutkan'; }
+      render(); sendState();
+    }
+
+    startBtn.addEventListener('click', ()=>{ if(startBtn.disabled) return; if(running) pause(); else start(); });
+    resetBtn.addEventListener('click', resetAll);
+    skipBtn.addEventListener('click', skipToNext);
+    document.getElementById('minus5').addEventListener('click', ()=>adjust(-5));
+    document.getElementById('minus1').addEventListener('click', ()=>adjust(-1));
+    document.getElementById('plus1').addEventListener('click', ()=>adjust(1));
+    document.getElementById('plus5').addEventListener('click', ()=>adjust(5));
+    examNameEl.addEventListener('input', ()=>{ render(); sendState(); });
+
+    document.querySelectorAll('.presets').forEach(group=>{
+      const sIdx = parseInt(group.dataset.session,10);
+      group.querySelectorAll('.preset-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          group.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+          btn.classList.add('active');
+          const min = parseInt(btn.dataset.min,10);
+          sessions[sIdx].minutes = min;
+          if(sIdx === currentIndex){
+            totalSeconds = min*60; remaining = totalSeconds; warnedFive=false; warnedOne=false;
+            running=false; ended=false; clearInterval(intervalId);
+            startBtn.disabled=false; startBtn.textContent = 'Mulai Sesi ' + (currentIndex+1);
+          }
+          render(); sendState();
+        });
+      });
+    });
+
+    render();
+  }
+
+  /* =================== DISPLAY (PESERTA) =================== */
+  const roomInput = document.getElementById('roomInput');
+  const connectBtn = document.getElementById('connectBtn');
+  const displayConnectForm = document.getElementById('displayConnectForm');
+  const displayConnected = document.getElementById('displayConnected');
+  const displayError = document.getElementById('displayError');
+  const dispStatusDot = document.getElementById('dispStatusDot');
+  const dispStatusText = document.getElementById('dispStatusText');
+  const dDisplay = document.getElementById('dDisplay');
+  const dSublabel = document.getElementById('dSublabel');
+  const dProgressFill = document.getElementById('dProgressFill');
+  const dSessionBadge = document.getElementById('dSessionBadge');
+  const pipBtn = document.getElementById('pipBtn');
+  const pipUnsupported = document.getElementById('pipUnsupported');
+
+  let dPeer = null, dConn = null, pipWindow = null, currentRoomCode = null, reconnectTimer = null;
+
+  function applyRender(msg){
+    dDisplay.textContent = msg.timeStr;
+    dDisplay.className = 'display ' + msg.cls;
+    dSublabel.textContent = msg.label;
+    dProgressFill.style.width = msg.ratio+'%';
+    dProgressFill.className = 'progress-fill ' + msg.cls;
+    dSessionBadge.textContent = msg.badgeText;
+    dSessionBadge.className = 'session-badge' + (msg.badgeWarn ? ' warn' : '');
+    if(msg.beep) beep(msg.beep.freq, msg.beep.dur);
+
+    if(pipWindow && !pipWindow.closed){
+      const pd = pipWindow.document;
+      const pDisplay = pd.getElementById('pDisplay');
+      const pSub = pd.getElementById('pSub');
+      const pBar = pd.getElementById('pBar');
+      const pBadge = pd.getElementById('pBadge');
+      if(pDisplay){ pDisplay.textContent = msg.timeStr; pDisplay.className = 'display ' + msg.cls; }
+      if(pSub) pSub.textContent = msg.label;
+      if(pBadge) pBadge.textContent = msg.badgeText;
+      if(pBar){ pBar.style.width = msg.ratio+'%'; pBar.className = 'progress-fill ' + msg.cls; }
+    }
+  }
+
+  function connectToRoom(code){
+    currentRoomCode = code;
+    displayError.style.display = 'none';
+    if(dPeer){ try{ dPeer.destroy(); }catch(e){} }
+    dPeer = new Peer();
+    dPeer.on('open', ()=>{
+      dConn = dPeer.connect('ujikom-'+code, {reliable:true});
+      dConn.on('open', ()=>{
+        displayConnectForm.hidden = true;
+        displayConnected.hidden = false;
+        dispStatusDot.className = 'status-dot ok';
+        dispStatusText.textContent = 'Terhubung ke panitia';
+        if(!('documentPictureInPicture' in window)) pipUnsupported.style.display = 'block';
+      });
+      dConn.on('data', (msg)=>{ if(msg && msg.type==='render') applyRender(msg); });
+      dConn.on('close', ()=>{
+        dispStatusDot.className = 'status-dot bad';
+        dispStatusText.textContent = 'Koneksi terputus. Mencoba menyambung ulang…';
+        scheduleReconnect();
+      });
+      dConn.on('error', ()=>{
+        dispStatusDot.className = 'status-dot bad';
+        dispStatusText.textContent = 'Koneksi terputus. Mencoba menyambung ulang…';
+        scheduleReconnect();
+      });
+    });
+    dPeer.on('error', (err)=>{
+      if(displayConnected.hidden){
+        displayError.style.display = 'block';
+        displayError.textContent = 'Gagal menyambung. Periksa kode ruangan dan koneksi internet, lalu coba lagi.';
+      } else {
+        scheduleReconnect();
+      }
+    });
+  }
+  function scheduleReconnect(){
+    if(reconnectTimer) return;
+    reconnectTimer = setTimeout(()=>{
+      reconnectTimer = null;
+      if(currentRoomCode) connectToRoom(currentRoomCode);
+    }, 3000);
+  }
+
+  connectBtn.addEventListener('click', ()=>{
+    const code = roomInput.value.trim().toUpperCase();
+    if(!code){ displayError.style.display='block'; displayError.textContent='Masukkan kode ruangan dulu.'; return; }
+    connectToRoom(code);
+  });
+  roomInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') connectBtn.click(); });
+
+  const pipStyles = `
+    body{margin:0;background:#0B1220;color:#E7ECF5;font-family:'Inter',sans-serif;
+      display:flex;align-items:center;justify-content:center;height:100%;}
+    .wrap{width:100%;padding:12px 10px;text-align:center;}
+    .badge{font-size:9.5px;letter-spacing:.06em;font-weight:700;color:#2DD4BF;
+      background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.35);
+      border-radius:16px;padding:3px 9px;display:inline-block;margin-bottom:6px;}
+    .display{font-family:'Space Grotesk',sans-serif;font-size:40px;font-weight:700;
+      font-variant-numeric:tabular-nums;line-height:1;color:#2DD4BF;transition:color .3s;}
+    .display.warn{color:#F4B400;}
+    .display.critical{color:#EF4444;animation:pulse 1s infinite;}
+    @keyframes pulse{50%{opacity:.45;}}
+    .sub{margin-top:4px;font-size:10.5px;letter-spacing:.04em;color:#8B98B4;}
+    .track{height:4px;background:#26324B;border-radius:4px;margin-top:8px;overflow:hidden;}
+    .progress-fill{height:100%;background:#2DD4BF;width:100%;transition:width 1s linear, background .3s;}
+    .progress-fill.warn{background:#F4B400;}
+    .progress-fill.critical{background:#EF4444;}
+  `;
+
+  pipBtn.addEventListener('click', async ()=>{
+    if(!('documentPictureInPicture' in window)){ pipUnsupported.style.display = 'block'; return; }
+    try{
+      pipWindow = await documentPictureInPicture.requestWindow({width:300, height:160});
+      const style = pipWindow.document.createElement('style');
+      style.textContent = pipStyles;
+      pipWindow.document.head.appendChild(style);
+      pipWindow.document.body.innerHTML = `
+        <div class="wrap">
+          <div class="badge" id="pBadge">SESI 1/2 • PEMAPARAN</div>
+          <div class="display" id="pDisplay">00:00</div>
+          <div class="sub" id="pSub">MENUNGGU PANITIA</div>
+          <div class="track"><div class="progress-fill" id="pBar"></div></div>
+        </div>
+      `;
+      pipWindow.addEventListener('pagehide', ()=>{ pipWindow = null; });
+    }catch(err){
+      pipUnsupported.textContent = 'Gagal membuka mode melayang: ' + err.message;
+      pipUnsupported.style.display = 'block';
+    }
+  });
+})();
+</script>
+</body>
+</html>
