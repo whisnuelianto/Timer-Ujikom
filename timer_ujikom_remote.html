@@ -309,27 +309,6 @@
     return s;
   }
 
-  /* =================== TURN CREDENTIALS (METERED.CA) =================== */
-  const METERED_DOMAIN = 'timer-ujikom.metered.live';
-  const METERED_API_KEY = 'e865652bb266ce6f7843028a114c87908dd9';
-  const FALLBACK_ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
-  let iceServersPromise = null;
-
-  function getIceServers(){
-    if(!iceServersPromise){
-      iceServersPromise = fetch(
-        'https://' + METERED_DOMAIN + '/api/v1/turn/credentials?apiKey=' + METERED_API_KEY
-      )
-        .then(res => { if(!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
-        .then(servers => (Array.isArray(servers) && servers.length) ? servers : FALLBACK_ICE_SERVERS)
-        .catch(err => {
-          console.warn('Gagal mengambil kredensial TURN dari Metered, memakai STUN fallback.', err);
-          return FALLBACK_ICE_SERVERS;
-        });
-    }
-    return iceServersPromise;
-  }
-
   const landing = document.getElementById('landing');
   const controllerView = document.getElementById('controllerView');
   const displayView = document.getElementById('displayView');
@@ -353,6 +332,39 @@
       osc.start();
       setTimeout(()=>{ osc.stop(); ctx.close(); }, dur);
     }catch(e){}
+  }
+
+  // Konfigurasi ICE server: STUN saja sering gagal kalau kedua laptop beda jaringan
+  // (mis. WiFi sekolah yang firewall-nya ketat). TURN jadi jalur cadangan (relay).
+  // Kredensial diambil otomatis dari akun Metered.ca pribadi (aman dipakai di
+  // front-end, ini "API Key" khusus TURN, BUKAN Secret Key akun).
+  const METERED_TURN_API = 'https://timer-ujikom.metered.live/api/v1/turn/credentials?apiKey=e865652bb266ce6f7843028a114c87908dd9';
+
+  // Fallback kalau API di atas gagal diakses (mis. jaringan sedang bermasalah)
+  const FALLBACK_ICE_CONFIG = {
+    iceServers: [
+      { urls: 'stun:stun.relay.metered.ca:80' },
+      { urls: 'turn:global.relay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:global.relay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+      { urls: 'turn:global.relay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+    ]
+  };
+
+  let _iceConfigCache = null;
+  async function getIceConfig(){
+    if(_iceConfigCache) return _iceConfigCache;
+    try{
+      const res = await fetch(METERED_TURN_API);
+      const iceServers = await res.json();
+      if(Array.isArray(iceServers) && iceServers.length){
+        _iceConfigCache = { iceServers };
+        return _iceConfigCache;
+      }
+    }catch(e){
+      console.warn('Gagal ambil kredensial TURN dari Metered, pakai fallback.', e);
+    }
+    _iceConfigCache = FALLBACK_ICE_CONFIG;
+    return _iceConfigCache;
   }
 
   function fmt(s){
@@ -398,8 +410,8 @@
       ctrlStatusText.textContent = 'Menyiapkan koneksi…';
       ctrlStatusDot.className = 'status-dot pending';
       try{ if(peer) peer.destroy(); }catch(e){}
-      const iceServers = await getIceServers();
-      peer = new Peer('ujikom-'+roomCode, { config: { iceServers } });
+      const iceConfig = await getIceConfig();
+      peer = new Peer('ujikom-'+roomCode, { config: iceConfig });
       peer.on('open', ()=>{
         ctrlStatusText.textContent = 'Kode siap. Menunggu peserta menyambung…';
         ctrlStatusDot.className = 'status-dot pending';
@@ -617,8 +629,8 @@
     currentRoomCode = code;
     displayError.style.display = 'none';
     if(dPeer){ try{ dPeer.destroy(); }catch(e){} }
-    const iceServers = await getIceServers();
-    dPeer = new Peer({ config: { iceServers } });
+    const iceConfig = await getIceConfig();
+    dPeer = new Peer(undefined, { config: iceConfig });
     dPeer.on('open', ()=>{
       dConn = dPeer.connect('ujikom-'+code, {reliable:true});
       dConn.on('open', ()=>{
