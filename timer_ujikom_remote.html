@@ -309,6 +309,27 @@
     return s;
   }
 
+  /* =================== TURN CREDENTIALS (METERED.CA) =================== */
+  const METERED_DOMAIN = 'timer-ujikom.metered.live';
+  const METERED_API_KEY = 'e865652bb266ce6f7843028a114c87908dd9';
+  const FALLBACK_ICE_SERVERS = [{ urls: 'stun:stun.l.google.com:19302' }];
+  let iceServersPromise = null;
+
+  function getIceServers(){
+    if(!iceServersPromise){
+      iceServersPromise = fetch(
+        'https://' + METERED_DOMAIN + '/api/v1/turn/credentials?apiKey=' + METERED_API_KEY
+      )
+        .then(res => { if(!res.ok) throw new Error('HTTP '+res.status); return res.json(); })
+        .then(servers => (Array.isArray(servers) && servers.length) ? servers : FALLBACK_ICE_SERVERS)
+        .catch(err => {
+          console.warn('Gagal mengambil kredensial TURN dari Metered, memakai STUN fallback.', err);
+          return FALLBACK_ICE_SERVERS;
+        });
+    }
+    return iceServersPromise;
+  }
+
   const landing = document.getElementById('landing');
   const controllerView = document.getElementById('controllerView');
   const displayView = document.getElementById('displayView');
@@ -371,13 +392,14 @@
     let conns = [];
     let roomCode = null;
 
-    function setupPeer(attemptsLeft){
+    async function setupPeer(attemptsLeft){
       roomCode = genRoomCode(6);
       roomCodeDisplay.textContent = roomCode;
       ctrlStatusText.textContent = 'Menyiapkan koneksi…';
       ctrlStatusDot.className = 'status-dot pending';
       try{ if(peer) peer.destroy(); }catch(e){}
-      peer = new Peer('ujikom-'+roomCode);
+      const iceServers = await getIceServers();
+      peer = new Peer('ujikom-'+roomCode, { config: { iceServers } });
       peer.on('open', ()=>{
         ctrlStatusText.textContent = 'Kode siap. Menunggu peserta menyambung…';
         ctrlStatusDot.className = 'status-dot pending';
@@ -591,11 +613,12 @@
     }
   }
 
-  function connectToRoom(code){
+  async function connectToRoom(code){
     currentRoomCode = code;
     displayError.style.display = 'none';
     if(dPeer){ try{ dPeer.destroy(); }catch(e){} }
-    dPeer = new Peer();
+    const iceServers = await getIceServers();
+    dPeer = new Peer({ config: { iceServers } });
     dPeer.on('open', ()=>{
       dConn = dPeer.connect('ujikom-'+code, {reliable:true});
       dConn.on('open', ()=>{
